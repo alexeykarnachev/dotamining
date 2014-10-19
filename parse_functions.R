@@ -180,11 +180,17 @@ parse.teamsMatchesResults = function(team.id, features, minDate, minGames,
                                        "opponent.player_5", "opponent.player_1.id", 
                                        "opponent.player_2.id", "opponent.player_3.id", 
                                        "opponent.player_4.id", "opponent.player_5.id")
+      if(is.null(features)){
+        features = c(colnames(team.table), colnames(playersNames.table))
+      }else{
+        features = c(features, colnames(playersNames.table))
+      }
       
-      features = c(features, colnames(playersNames.table))
+      team.table = unfactor.df(cbind(team.table, playersNames.table))
+      
     }
     
-    team.table = cbind(team.table, playersNames.table)
+    
     
     if(!is.null(features)){
       return(team.table[,features]) 
@@ -194,6 +200,21 @@ parse.teamsMatchesResults = function(team.id, features, minDate, minGames,
     
   }
 }
+
+
+#===============================================================================
+# Function to parse bets from egamingbets.com
+
+parse.egamingDotaBets = function(){
+  
+  url = 'http://egamingbets.com/ru/tables#dota'
+  doc = htmlParse(url)
+  
+  
+}
+
+
+
 
 
 
