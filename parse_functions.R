@@ -190,8 +190,6 @@ parse.teamsMatchesResults = function(team.id, features, minDate, minGames,
       
     }
     
-    
-    
     if(!is.null(features)){
       return(team.table[,features]) 
     }else{
@@ -202,16 +200,8 @@ parse.teamsMatchesResults = function(team.id, features, minDate, minGames,
 }
 
 
-#===============================================================================
-# Function to parse bets from egamingbets.com
 
-parse.egamingDotaBets = function(){
-  
-  url = 'http://egamingbets.com/ru/tables#dota'
-  doc = htmlParse(url)
-  
-  
-}
+
 
 
 
