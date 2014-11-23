@@ -5,9 +5,9 @@ from urllib.parse import quote
 '''
 Functions for parse dotabuff, eGamingBets and find free proxies
 '''
-# ================================================================
+#=================================================================
 # Proxy Finder:
-# ================================================================
+#=================================================================
 
 def proxy_finder(txt_path):
     g = Grab()
@@ -30,19 +30,20 @@ def proxy_finder(txt_path):
     f.close()
 
 
-# ================================================================
+#=================================================================
 # Valid matches urls finder:
 #================================================================
 
 def get_valid_matches_urls_from_matches_page(matches_page_url):
-    # ===========================================================
+
+    #============================================================
     # Grab section:
 
     grab = Grab()
     grab.go(matches_page_url)
 
 
-    # ===========================================================
+    #============================================================
     # Filter matches section:
 
     # Select all rows in table:
@@ -79,7 +80,7 @@ def get_valid_matches_urls_from_matches_page(matches_page_url):
         .difference(bad_matches_indices)
 
 
-    # ===========================================================
+    #============================================================
     # Parse matches section:
 
     # Go through all valid rows and find:
@@ -103,7 +104,7 @@ def get_matches_pages_urls_from_matches_page(matches_page_url):
     grab = Grab()
     grab.go(matches_page_url)
 
-    # ===========================================================
+    #============================================================
     # Find number of pages:
 
     last_page_elem = \
@@ -137,6 +138,7 @@ def get_teams_matches_pages_urls_from_teams_page_grab(grab):
                              "/tr/td[2]/a").attr_list('href')]
     return teams_matches_pages_urls
 
+if __name__ == '__main__':
 g = Grab()
 g.go('http://www.dotabuff.com/esports/teams')
 foo = get_teams_matches_pages_urls_from_teams_page_grab(g)
