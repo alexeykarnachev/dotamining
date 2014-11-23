@@ -5,9 +5,9 @@ from urllib.parse import quote
 '''
 Functions for parse dotabuff, eGamingBets and find free proxies
 '''
-#=================================================================
+#==================================================================
 # Proxy Finder:
-#=================================================================
+#==================================================================
 
 def proxy_finder(txt_path):
     g = Grab()
@@ -34,15 +34,7 @@ def proxy_finder(txt_path):
 # Valid matches urls finder:
 #================================================================
 
-def get_valid_matches_urls_from_matches_page(matches_page_url):
-
-    #============================================================
-    # Grab section:
-
-    grab = Grab()
-    grab.go(matches_page_url)
-
-
+def get_valid_matches_urls_from_matches_page_grab(grab):
     #============================================================
     # Filter matches section:
 
@@ -97,13 +89,7 @@ def get_valid_matches_urls_from_matches_page(matches_page_url):
 # Matches pages finder
 #================================================================
 
-def get_matches_pages_urls_from_matches_page(matches_page_url):
-    # ===========================================================
-    # Grab section:
-
-    grab = Grab()
-    grab.go(matches_page_url)
-
+def get_matches_pages_urls_from_matches_page_grab(grab):
     #============================================================
     # Find number of pages:
 
@@ -116,30 +102,106 @@ def get_matches_pages_urls_from_matches_page(matches_page_url):
     else:
         number_of_pages = 1
 
-    # ===========================================================
+    #============================================================
     # Generate pages urls:
 
-    matches_pages_urls = [str(matches_page_url + '?page={p}').
-                              format(p=i + 1)
+    matches_pages_urls = [grab.make_url_absolute(str('./matches?page={p}').
+                                                 format(p=i + 1))
                           for i in range(number_of_pages)]
 
-    return(matches_pages_urls)
+    return (matches_pages_urls)
 
 
 #================================================================
 # Initial teams matches pages finder:
 #================================================================
 
-
 def get_teams_matches_pages_urls_from_teams_page_grab(grab):
     teams_matches_pages_urls = \
-            [grab.make_url_absolute(x) + "/matches" for x in
-             grab.doc.select("//*[@id='teams-all']/table/tbody"
-                             "/tr/td[2]/a").attr_list('href')]
+        [grab.make_url_absolute(x) + "/matches" for x in
+         grab.doc.select("//*[@id='teams-all']/table/tbody"
+                         "/tr/td[2]/a").attr_list('href')]
     return teams_matches_pages_urls
 
+
+#================================================================
+# Single match parser:
+#================================================================
+
+def parse_game_object_from_match_page_grab(grab):
+    #============================================================
+    # Parse match section:
+
+    # Get match id
+    match_id = int(re.findall('\d+',
+                              grab.doc.select('//*[@id="content-header-primary"]'
+                                              '/div/h1').text()).pop())
+
+    # Get match result
+    match_result_str = grab.doc.select('//*[@id="page-content"]'
+                                       '/div[3]/div[1]').text()
+    if match_result_str == 'Radiant Victory':
+        match_result = 0
+    if match_result_str == 'Dire Victory':
+        match_result = 1
+
+    # Get match date
+    match_date = grab.doc.select('//*[@id="content-header-'
+                                 'secondary"]/dl[5]/dd').text()
+
+    # Get match region
+    match_region = grab.doc.select('//*[@id="content-header-'
+                                   'secondary"]/dl[3]/dd').text()
+
+    # Get match league
+    match_league = grab.doc.select('//*[@id="content-header-'
+                                   'secondary"]/dl[1]/dd/a').text()
+
+    # Get radiant team name
+    radiant_name = grab.doc.select('//*[@id="page-content"]/div[3]/'
+                                   'div[2]/section[1]/header/a[2]').text()
+
+    # Get dire team name
+    dire_name = grab.doc.select('//*[@id="page-content"]/div[3]/'
+                                'div[2]/section[2]/header/a[2]').text()
+
+    # Get radiant team id
+    radiant_id = int(re.findall('\d+$', grab.doc.select(
+        '//*[@id="page-content"]/div[3]/div[2]/section[1]'
+        '/header/a[2]').attr('href')).pop())
+
+    # Get dire team id
+    dire_id = int(re.findall('\d+$', grab.doc.select(
+        '//*[@id="page-content"]/div[3]/div[2]/section[2]'
+        '/header/a[2]').attr('href')).pop())
+
+    # Get radiant players names
+    radiant_players_names = grab.doc.select(
+        '//*[@id="page-content"]/div[3]/div[2]/section[1]'
+        '/article/table/tbody/tr/td[2]/a').text_list()
+
+    # Get dire players names
+    dire_players_names = grab.doc.select(
+        '//*[@id="page-content"]/div[3]/div[2]/section[2]'
+        '/article/table/tbody/tr/td[2]/a').text_list()
+
+    # Get radiant players ids
+    radiant_players_ids = [int(re.findall('\d+$', x).pop())
+                           for x in grab.doc.select(
+            '//*[@id="page-content"]/div[3]/div[2]/section[1]'
+            '/article/table/tbody/tr/td[2]/a').attr_list('href')]
+
+    # Get dire players ids
+    dire_players_ids = [int(re.findall('\d+$', x).pop())
+                        for x in grab.doc.select(
+            '//*[@id="page-content"]/div[3]/div[2]/section[2]'
+            '/article/table/tbody/tr/td[2]/a').attr_list('href')]
+
+    return match_id
+
+
 if __name__ == '__main__':
-g = Grab()
-g.go('http://www.dotabuff.com/esports/teams')
-foo = get_teams_matches_pages_urls_from_teams_page_grab(g)
-print(foo)
+    g = Grab()
+    g.go('http://en.dotabuff.com/matches/1042720490')
+    foo = parse_game_object_from_match_page_grab(g)
+    print(foo)
