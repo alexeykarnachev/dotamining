@@ -1,15 +1,15 @@
-from grab import Grab
+from grab import Grab, GrabError
 import re
 from urllib.parse import quote
+
 '''
 Functions for parse dotabuff, eGamingBets and find free proxies
 '''
-# ===========================================================
+# ================================================================
 # Proxy Finder:
-
+# ================================================================
 
 def proxy_finder(txt_path):
-
     g = Grab()
     g.go('http://www.google.ru/search?num=100&q=' +
          quote('free proxy +":8080"'))
@@ -30,15 +30,16 @@ def proxy_finder(txt_path):
     f.close()
 
 
-def get_valid_matches_urls_from_matches_page(team_id, page_number):
+# ================================================================
+# Valid matches urls finder:
+#================================================================
 
+def get_valid_matches_urls_from_matches_page(matches_page_url):
     # ===========================================================
     # Grab section:
 
     grab = Grab()
-    url = ('http://en.dotabuff.com/esports/teams/{i}/'
-           'matches?page={p}').format(i=team_id, p=page)
-    grab.go(url)
+    grab.go(matches_page_url)
 
 
     # ===========================================================
@@ -84,8 +85,59 @@ def get_valid_matches_urls_from_matches_page(team_id, page_number):
     # Go through all valid rows and find:
 
     # matches ids:
-    matches_ids_valid = [grab.make_url_absolute(tr[x].select('td[1]/a').
-                         attr_list('href').pop())
-                         for x in good_matches_indices]
+    matches_urls_valid = [grab.make_url_absolute(tr[x].select('td[1]/a').
+                                                 attr_list('href').pop())
+                          for x in good_matches_indices]
 
-    return matches_ids_valid
+    return matches_urls_valid
+
+
+#================================================================
+# Matches pages finder
+#================================================================
+
+def get_matches_pages_urls_from_matches_page(matches_page_url):
+    # ===========================================================
+    # Grab section:
+
+    grab = Grab()
+    grab.go(matches_page_url)
+
+    # ===========================================================
+    # Find number of pages:
+
+    last_page_elem = \
+        grab.doc.select("//*[@id='page-content']/section/"
+                        "article/nav/span[@class='last']/a")
+    if last_page_elem.exists():
+        number_of_pages = int(re.findall(
+            '\d+$', last_page_elem.attr('href')).pop())
+    else:
+        number_of_pages = 1
+
+    # ===========================================================
+    # Generate pages urls:
+
+    matches_pages_urls = [str(matches_page_url + '?page={p}').
+                              format(p=i + 1)
+                          for i in range(number_of_pages)]
+
+    return(matches_pages_urls)
+
+
+#================================================================
+# Initial teams matches pages finder:
+#================================================================
+
+
+def get_teams_matches_pages_urls_from_teams_page_grab(grab):
+    teams_matches_pages_urls = \
+            [grab.make_url_absolute(x) + "/matches" for x in
+             grab.doc.select("//*[@id='teams-all']/table/tbody"
+                             "/tr/td[2]/a").attr_list('href')]
+    return teams_matches_pages_urls
+
+g = Grab()
+g.go('http://www.dotabuff.com/esports/teams')
+foo = get_teams_matches_pages_urls_from_teams_page_grab(g)
+print(foo)
