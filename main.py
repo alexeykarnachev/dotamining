@@ -12,15 +12,24 @@ from game import *
 #         gp = GamePast({'match_id': idx,
 #                    'date': 'never',
 #                    'league': 'cocksucka league',
+#                    'region': 'china',
 #                    'result': 2,
 #                    'prediction': -1,
-#                    'teams': {
-#                      'id': [12, 10],
-#                      'name': ['LGD', 'NewBee']
+#                    'team_radiant': {
+#                      'id': [12],
+#                      'name': ['LGD']
 #                    },
-#                   'players': {
-#                     'id': list(range(10)),
-#                     'name': ['Noob'] * 10
+#                    'team_dire': {
+#                      'id': [10],
+#                      'name': ['ES']
+#                    },
+#                   'players_radiant': {
+#                     'id': list(range(5)),
+#                     'name': ['Noob'] * 5
+#                   },
+#                   'players_dire': {
+#                     'id': list(range(5)),
+#                     'name': ['Noob2'] * 5
 #                   }}
 #                  )
 #

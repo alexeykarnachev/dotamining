@@ -16,14 +16,19 @@ class GamePast(Game):
         fields = [self.fields["match_id"],
                   self.fields["date"],
                   self.fields["league"],
+                  self.fields["region"],
                   self.fields["result"],
                   self.fields["prediction"]]
-        for n in range(2):
+        for k in ['name', 'id']:
+            fields.append(self.fields["team_radiant"][k][0])
+        for k in ['name', 'id']:
+            fields.append(self.fields["team_dire"][k][1])
+        for n in range(5):
             for k in ['name', 'id']:
-                fields.append(self.fields["teams"][k][n])
-        for n in range(10):
+                fields.append(self.fields["players_radiant"][k][n])
+        for n in range(5):
             for k in ['name', 'id']:
-                fields.append(self.fields["players"][k][n])
+                fields.append(self.fields["players_dire"][k][n])
         s = ','.join(repr(e) for e in fields)
         return s
 

@@ -1,13 +1,14 @@
 from grab import Grab, GrabError
 import re
+from game import *
 from urllib.parse import quote
 
 '''
 Functions for parse dotabuff, eGamingBets and find free proxies
 '''
-#==================================================================
+# ==================================================================
 # Proxy Finder:
-#==================================================================
+# ==================================================================
 
 def proxy_finder(txt_path):
     g = Grab()
@@ -30,7 +31,7 @@ def proxy_finder(txt_path):
     f.close()
 
 
-#=================================================================
+# =================================================================
 # Valid matches urls finder:
 #================================================================
 
@@ -197,11 +198,37 @@ def parse_game_object_from_match_page_grab(grab):
             '//*[@id="page-content"]/div[3]/div[2]/section[2]'
             '/article/table/tbody/tr/td[2]/a').attr_list('href')]
 
-    return match_id
+    #============================================================
+    # Create db object - gp:
+    gp = GamePast({'match_id': match_id,
+                   'date': match_date,
+                   'league': match_league,
+                   'region': match_region,
+                   'result': match_result,
+                   'prediction': -1,
+                   'team_radiant': {
+                       'id': [radiant_id],
+                       'name': [radiant_name]
+                   },
+                   'team_dire': {
+                       'id': [radiant_id, dire_id],
+                       'name': [radiant_name, dire_name]
+                   },
+                   'players_radiant': {
+                       'id': radiant_players_ids,
+                       'name': radiant_players_names
+                   },
+                   'players_dire': {
+                       'id': dire_players_ids,
+                       'name': dire_players_names
+                   }}
+    )
+
+    return gp
 
 
 if __name__ == '__main__':
     g = Grab()
     g.go('http://en.dotabuff.com/matches/1042720490')
     foo = parse_game_object_from_match_page_grab(g)
-    print(foo)
+    print(foo.as_str())
