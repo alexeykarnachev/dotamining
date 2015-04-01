@@ -1,3 +1,7 @@
-.Rproj.user
-.Rhistory
-.RData
+/*
+/*/
+!/src/
+!README.md
+!build.py
+!dbdiagram.png
+/src/unittest/data/demobase.db
