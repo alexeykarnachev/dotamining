@@ -1,8 +1,6 @@
 import re
 import datetime
-from sqlite3 import IntegrityError
 from grab.spider import Spider, Task
-from grab import Grab
 from bs4 import BeautifulSoup as bs
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,12 +8,11 @@ from DataModel import *
 
 
 class DotabuffSpider(Spider):
-    def __init__(self, team_id, from_date=None, to_date=None):
+
+    def __init__(self, team_id, ignore_id):
         super().__init__()
         self.__team_id = team_id
-        self.__from_date = from_date
-        self.__to_date = to_date
-        self.__matches_parsed = 0
+        self.__ignore_id = ignore_id
 
     def __parse_match_grab(self, match_grab):
         def __parse_duration(str):
@@ -129,64 +126,38 @@ class DotabuffSpider(Spider):
                  for p in range(1, number + 1)]
         return pages
 
-    def __get_valid_matches_from_pagination_grab(self, pagination_grab, from_date=None, to_date=None, ignore_id=[]):
+    def __get_valid_matches_from_pagination_grab(self, pagination_grab, ignore_id):
         soup = bs(pagination_grab.doc.body)
         rows = soup.find('tbody').find_all('tr', class_=lambda x: x != 'inactive')
         links = []
-        if from_date is None:
-            from_date = datetime.datetime(2000, 1, 1)
-        if to_date is None:
-            to_date = datetime.datetime(3000, 1, 1)
         for row in rows:
-            date = datetime.datetime.strptime(row.find('time')['datetime'][0:19], '%Y-%m-%dT%H:%M:%S')
-            if from_date <= date <= to_date and:
-                links.append('http://www.dotabuff.com' + row.find('a')['href'])
+            str_match_id = row.find('a')['href']
+            match_id = int(re.findall('\d+', str_match_id)[0])
+            if match_id not in ignore_id:
+                links.append('http://www.dotabuff.com' + str_match_id)
 
         return links
 
     def prepare(self):
         self.initial_urls = ['http://www.dotabuff.com/esports/teams/{id}/matches'.format(id=self.__team_id)]
-        self.results = []
+        self.__results = []
 
     def task_initial(self, grab, task):
         pagination_links = self.__get_team_pagination_links(grab)
-
         for pagination_link in pagination_links:
             yield Task('pagination_link', url=pagination_link)
 
     def task_pagination_link(self, grab, task):
-        matches_links = self.__get_valid_matches_from_pagination_grab(grab, self.__from_date, self.__to_date)
-
+        matches_links = self.__get_valid_matches_from_pagination_grab(grab, self.__ignore_id)
         for match_link in matches_links:
             yield Task('match_link', url=match_link)
 
     def task_match_link(self, grab, task):
         match = self.__parse_match_grab(grab)
-        self.__matches_parsed += 1
-        print(self.__matches_parsed)
+        self.__results += [match]
+        print(len(self.__results))
 
-        self.results += [match]
+    def get_results(self):
+        return self.__results
 
-
-if __name__ == '__main__':
-    spider = DotabuffSpider(36)
-    spider.thread_number = 10
-    spider.run()
-
-    engine = create_engine('sqlite:///orm_in_detail.sqlite')
-    session = sessionmaker()
-    session.configure(bind=engine)
-    Base.metadata.create_all(engine)
-    s = session()
-    s.autoflush = False
-    commited = 0
-    for i in spider.results:
-        commited += 1
-        print(commited)
-        try:
-            s.add_all(i)
-            s.commit()
-        except:
-            pass
-    s.close()
 

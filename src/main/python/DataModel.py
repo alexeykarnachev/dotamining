@@ -62,15 +62,3 @@ class Item(Base):
     dotabuff_name = Column(String)
 
     player = relationship(Player)
-
-
-
-#
-# m = Match(league_dotabuff_id=1, dotabuff_id=1000)
-# t_1 = Team(dotabuff_name="Team_1", dotabuff_id=1, fraction='radiant', match=m)
-# t_2 = Team(dotabuff_name="Team_2", dotabuff_id=2, fraction='dire', match=m)
-# p_1 = Player(dotabuff_name='Player_1', dotabuff_id=100, hero_dotabuff_name='hero_1', team=t_1)
-# p_2 = Player(dotabuff_name='Player_2', dotabuff_id=200, hero_dotabuff_name='hero_2', team=t_2)
-# s = session()
-# s.add_all([m,t_1,t_2,p_1,p_2])
-# s.commit()
