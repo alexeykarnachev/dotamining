@@ -1,5 +1,6 @@
 import re
 import datetime
+from grab import Grab
 from grab.spider import Spider, Task
 from bs4 import BeautifulSoup as bs
 from sqlalchemy import create_engine
@@ -108,13 +109,12 @@ class DotabuffSpider(Spider):
                     item = Item(player=player)
                     item.dotabuff_name = re.findall(re.compile('items/(.+)'), items_a[item_i]['href'])[0]
                     items.append(item)
-
                 players.append(player)
 
         return [match] + items + players + teams
 
-    def __get_team_pagination_links(self, team_grab_matches_grab):
-        soup = bs(team_grab_matches_grab.doc.body)
+    def __get_team_pagination_links(self, team_matches_grab):
+        soup = bs(team_matches_grab.doc.body)
         team_id = int(re.findall('\d+', soup.find('h1').find('a')['href'])[0])
         pagination = soup.find('nav', attrs={'class': 'pagination'})
         if pagination:
@@ -143,21 +143,29 @@ class DotabuffSpider(Spider):
         self.__results = []
 
     def task_initial(self, grab, task):
-        pagination_links = self.__get_team_pagination_links(grab)
+        try:
+            pagination_links = self.__get_team_pagination_links(grab)
+        except:
+            pagination_links = []
+
         for pagination_link in pagination_links:
             yield Task('pagination_link', url=pagination_link)
 
     def task_pagination_link(self, grab, task):
-        matches_links = self.__get_valid_matches_from_pagination_grab(grab, self.__ignore_id)
+        try:
+            matches_links = self.__get_valid_matches_from_pagination_grab(grab, self.__ignore_id)
+        except:
+            matches_links = []
+
         for match_link in matches_links:
             yield Task('match_link', url=match_link)
 
     def task_match_link(self, grab, task):
-        match = self.__parse_match_grab(grab)
-        self.__results += [match]
-        print(len(self.__results))
+        try:
+            match = self.__parse_match_grab(grab)
+            self.__results += [match]
+        except:
+            pass
 
     def get_results(self):
         return self.__results
-
-

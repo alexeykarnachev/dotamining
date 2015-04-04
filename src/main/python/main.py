@@ -1,5 +1,5 @@
 import configparser
-from Interface import Interface
+from DotabuffImportInterface import Interface
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
