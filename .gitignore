@@ -4,4 +4,5 @@
 !README.md
 !build.py
 !config_example.ini
+!proxy_example.txt
 /src/unittest/data/demobase.db
