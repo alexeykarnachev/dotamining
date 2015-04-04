@@ -3,7 +3,6 @@ from DotabuffSpider import DotabuffSpider
 from grab.proxylist import ProxyList
 
 
-
 class DotabuffAdapter:
     def __init__(self, database_configuration, spider_configuration):
         self.__db_handler = DatabaseHandler(database_configuration)
@@ -25,7 +24,7 @@ class DotabuffAdapter:
         return spider
 
     def update_team(self, team_id):
-        self.__ignore_id = self.__db_handler.get_team_matches_dotabuff_id(team_id)
+        self.__ignore_id = self.__db_handler.get_matches_id_by_team_id(team_id)
         self.__team_id = team_id
 
         spider = self.__configure_spider()
@@ -34,7 +33,7 @@ class DotabuffAdapter:
         self.__db_handler.commit_spider_results(spider.get_results())
 
     def update_opponents(self, team_id):
-        for i in self.__db_handler.get_opponents_dotabuff_id(team_id):
+        for i in self.__db_handler.get_opponents_id(team_id):
             self.update_team(i)
 
 
