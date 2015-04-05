@@ -40,7 +40,7 @@ class Interface:
                     team_id = TEAMS_TO_ANALYZE[i]
                     coeff = TEAMS_COEFFS[i]
                     name = self.__db_handler.get_team_name(team_id)
-                    results = self.__db_handler.get_team_results(team_id, last_date, last_games, 36)
+                    results = self.__db_handler.get_team_results(team_id, last_date, last_games)
                     matches = len(results)
                     p = self.__analytics.count_marginal_p(results)
                     ev = self.__analytics.count_ev(p, coeff)
