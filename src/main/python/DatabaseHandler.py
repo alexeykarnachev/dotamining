@@ -1,5 +1,6 @@
+from datetime import datetime
 from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Query
 from DataModel import *
 
 
@@ -18,6 +19,12 @@ class DatabaseHandler:
         q = self.__s.query(Match).filter(Match.dotabuff_id == match_id)
 
         return self.__s.execute(q).fetchall()[0]
+
+    def get_team_name(self, team_id):
+        self.__s.rollback()
+        q = self.__s.query(Team.dotabuff_name).filter(Team.dotabuff_id == team_id)
+
+        return self.__s.execute(q).fetchall()[0][0]
 
     def get_matches_id(self, team_id):
         self.__s.rollback()
@@ -50,10 +57,14 @@ class DatabaseHandler:
 
         return join_matches_id
 
-    def get_team_results(self, team_id, opponent=None):
+    def get_team_results(self, team_id, last_date=None, last_games=None, opponent=None):
         self.__s.rollback()
         if opponent is None:
             q = self.__s.query(Team.win).filter(Team.dotabuff_id == team_id).join(Match).order_by(desc(Match.date))
+            if last_date is not None:
+                q = q.filter(Match.date >= last_date)
+            if last_games is not None:
+                q = q.limit(last_games)
             results = [i[0] for i in self.__s.execute(q).fetchall()]
         else:
             matches_id = self.get_join_matches_id(team_id, opponent)
@@ -61,6 +72,10 @@ class DatabaseHandler:
             for match_id in matches_id:
                 q = self.__s.query(Team.win).filter(Team.dotabuff_id == team_id).join(Match).filter(
                     Match.dotabuff_id == match_id).order_by(desc(Match.date))
+                if last_date is not None:
+                    q = q.filter(Match.date >= last_date)
+                if last_games is not None:
+                    q = q.limit(last_games)
                 results.append([i for i in self.__s.execute(q).fetchall()][0][0])
         return results
 

@@ -1,3 +1,4 @@
+import datetime
 from pandas import DataFrame
 from DatabaseHandler import DatabaseHandler
 from DotaBetsAnalytics import DotaBetsAnalytics
@@ -25,18 +26,25 @@ class Interface:
                 print('Team Opponents Updated :: {}'.format(team_id))
 
     def run_analytics(self):
-        for method in METHODS:
+        for method in METHODS.keys():
 
             if method == 'marginal':
-                marginal_results = DataFrame(columns=('TeamID', 'Coeff', 'P', 'Ev', 'Matches'))
+                marginal_results = DataFrame(columns=('TeamID', 'TeamName', 'Coeff', 'P', 'Ev', 'Matches', 'LastDate'))
+                last_date = METHODS[method]['last_date']
+                last_games = METHODS[method]['last_games']
+                if METHODS[method]['last_date'] is not None:
+                    last_date = datetime.datetime.strptime(METHODS[method]['last_date'], '%Y-%m-%d')
+                if METHODS[method]['last_games'] is not None:
+                    last_games = METHODS[method]['last_games']
                 for i in range(len(TEAMS_TO_ANALYZE)):
                     team_id = TEAMS_TO_ANALYZE[i]
                     coeff = TEAMS_COEFFS[i]
-                    results = self.__db_handler.get_team_results(team_id)
+                    name = self.__db_handler.get_team_name(team_id)
+                    results = self.__db_handler.get_team_results(team_id, last_date, last_games, 36)
                     matches = len(results)
                     p = self.__analytics.count_marginal_p(results)
                     ev = self.__analytics.count_ev(p, coeff)
-                    marginal_results.loc[i] = [team_id, coeff, p, ev, matches]
+                    marginal_results.loc[i] = [team_id, name, coeff, p, ev, matches, last_date]
                 print(marginal_results)
 
 
