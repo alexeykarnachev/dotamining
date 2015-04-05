@@ -1,14 +1,11 @@
-import configparser
 from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker, Query
+from sqlalchemy.orm import sessionmaker
 from DataModel import *
 
 
 class DatabaseHandler:
-    def __init__(self, database_configuration):
-        self.__database_configuration = database_configuration
-
-        engine = create_engine(self.__database_configuration['con_path'])
+    def __init__(self, con_path):
+        engine = create_engine(con_path)
         session = sessionmaker()
         session.configure(bind=engine)
         Base.metadata.create_all(engine)
@@ -23,11 +20,13 @@ class DatabaseHandler:
         return self.__s.execute(q).fetchall()[0]
 
     def get_matches_id(self, team_id):
+        self.__s.rollback()
         q = self.__s.query(Match.dotabuff_id).join(Team).filter(Team.dotabuff_id == team_id)
 
         return [i[0] for i in self.__s.execute(q).fetchall()]
 
     def get_opponents_id(self, team_id):
+        self.__s.rollback()
         q = "SELECT DISTINCT a.dotabuff_id " \
             "FROM team a " \
             "join team b on b.match_id = a.match_id " \
@@ -52,8 +51,8 @@ class DatabaseHandler:
         return join_matches_id
 
     def get_team_results(self, team_id, opponent=None):
+        self.__s.rollback()
         if opponent is None:
-            self.__s.rollback()
             q = self.__s.query(Team.win).filter(Team.dotabuff_id == team_id).join(Match).order_by(desc(Match.date))
             results = [i[0] for i in self.__s.execute(q).fetchall()]
         else:

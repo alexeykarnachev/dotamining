@@ -4,15 +4,16 @@ from grab.proxylist import ProxyList
 
 
 class DotabuffAdapter:
-    def __init__(self, database_configuration, spider_configuration):
-        self.__db_handler = DatabaseHandler(database_configuration)
+    def __init__(self, db_handler: DatabaseHandler, spider_configuration):
+        self.__db_handler = db_handler
         self.__spider_configuration = spider_configuration
 
     def __configure_spider(self):
-        threads = int(self.__spider_configuration['threads'])
-        use_proxy = int(self.__spider_configuration['use_proxy'])
+        threads = self.__spider_configuration['threads']
+        use_proxy = self.__spider_configuration['use_proxy']
         proxy_file = self.__spider_configuration['proxy_file']
-        spider = DotabuffSpider(self.__team_id, self.__ignore_id)
+        ignore_id = self.__spider_configuration['ignore_id']
+        spider = DotabuffSpider(self.__team_id, ignore_id)
 
         spider.thread_number = threads
 
@@ -26,10 +27,9 @@ class DotabuffAdapter:
     def update_team(self, team_id):
         self.__ignore_id = self.__db_handler.get_matches_id(team_id)
         self.__team_id = team_id
-
         spider = self.__configure_spider()
-        spider.run()
 
+        spider.run()
         self.__db_handler.commit_spider_results(spider.get_results())
 
     def update_opponents(self, team_id):
