@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import configparser
+from sqlalchemy import create_engine, desc
+from sqlalchemy.orm import sessionmaker, Query
 from DataModel import *
 
 
@@ -15,13 +16,13 @@ class DatabaseHandler:
         self.__s = session()
         self.__s.autoflush = False
 
-    def get_match_by_id(self, match_id):
+    def get_match(self, match_id):
         self.__s.rollback()
         q = self.__s.query(Match).filter(Match.dotabuff_id == match_id)
 
         return self.__s.execute(q).fetchall()[0]
 
-    def get_matches_id_by_team_id(self, team_id):
+    def get_matches_id(self, team_id):
         q = self.__s.query(Match.dotabuff_id).join(Team).filter(Team.dotabuff_id == team_id)
 
         return [i[0] for i in self.__s.execute(q).fetchall()]
@@ -50,6 +51,20 @@ class DatabaseHandler:
 
         return join_matches_id
 
+    def get_team_results(self, team_id, opponent=None):
+        if opponent is None:
+            self.__s.rollback()
+            q = self.__s.query(Team.win).filter(Team.dotabuff_id == team_id).join(Match).order_by(desc(Match.date))
+            results = [i[0] for i in self.__s.execute(q).fetchall()]
+        else:
+            matches_id = self.get_join_matches_id(team_id, opponent)
+            results = []
+            for match_id in matches_id:
+                q = self.__s.query(Team.win).filter(Team.dotabuff_id == team_id).join(Match).filter(
+                    Match.dotabuff_id == match_id).order_by(desc(Match.date))
+                results.append([i for i in self.__s.execute(q).fetchall()][0][0])
+        return results
+
     def commit_spider_results(self, spider_results):
         self.__s.rollback()
         for i in spider_results:
@@ -59,10 +74,4 @@ class DatabaseHandler:
             except:
                 pass
 
-        if len(spider_results):
-            for i in spider_results[0]:
-                if type(i) is Team:
-                    team_id = i.dotabuff_id
-                    print('{} matches parsed :: Team {}'.format(len(spider_results), team_id))
-                    break
 

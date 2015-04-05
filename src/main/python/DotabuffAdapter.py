@@ -24,7 +24,7 @@ class DotabuffAdapter:
         return spider
 
     def update_team(self, team_id):
-        self.__ignore_id = self.__db_handler.get_matches_id_by_team_id(team_id)
+        self.__ignore_id = self.__db_handler.get_matches_id(team_id)
         self.__team_id = team_id
 
         spider = self.__configure_spider()
