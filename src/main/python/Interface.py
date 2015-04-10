@@ -8,6 +8,10 @@ from config import *
 
 
 class Interface:
+    """
+    This class is high level interface, which combining data obtaining and analytics.
+    It is using preset parameters in config.py.
+    """
     def __init__(self):
         self.__db_handler = DatabaseHandler(CON_PATH)
         self.__analytics = DotaBetsAnalytics()
@@ -42,10 +46,11 @@ class Interface:
                     name = self.__db_handler.get_team_name(team_id)
                     results = self.__db_handler.get_team_results(team_id, last_date, last_games)
                     matches = len(results)
-                    p = self.__analytics.count_marginal_p(results)
+                    p = self.__analytics.count_p(results)
                     ev = self.__analytics.count_ev(p, coeff)
                     marginal_results.loc[i] = [team_id, name, coeff, p, ev, matches, last_date]
                 print(marginal_results)
+
 
 
 

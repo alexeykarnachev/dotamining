@@ -9,7 +9,10 @@ from DataModel import *
 
 
 class DotabuffSpider(Spider):
-
+    """
+    This class is dotabuff spider (parser).
+    It is not actually important what happens here, so i will not write comments and docs for this.
+    """
     def __init__(self, team_id, ignore_id):
         super().__init__()
         self.__team_id = team_id
