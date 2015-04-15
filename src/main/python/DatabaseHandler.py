@@ -1,6 +1,8 @@
+import pickle
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from DataModel import *
+import networkx as nx
 
 
 class DatabaseHandler:
@@ -37,6 +39,19 @@ class DatabaseHandler:
         q = self.__s.query(Match).filter(Match.dotabuff_id == match_id)
 
         return self.__s.execute(q).fetchall()[0]
+
+    def get_team_id(self):
+        """
+        Method for getting all teams id in data base.
+        :return: Match object tuple.
+        """
+        # Rollback session.
+        self.__s.rollback()
+
+        # Creating query for match fetching.
+        q = self.__s.query(Team.dotabuff_id).distinct()
+
+        return [i[0] for i in self.__s.execute(q).fetchall()]
 
     def get_team_name(self, team_id):
         """
@@ -187,4 +202,41 @@ class DatabaseHandler:
             except:
                 pass
 
+    def import_network(self, last_date=None, last_games=None, save_graph_path=None, read_graph_path=None):
+        graph = nx.DiGraph()
+        teams_id = self.get_team_id()
+
+        if read_graph_path is not None:
+            graph = self.__load_object(read_graph_path)
+        else:
+            i = 0
+            for team_id in teams_id[0:-1]:
+                for opponent_id in teams_id[teams_id.index(team_id) + 1:]:
+                    try:
+                        results = self.get_team_results(team_id, last_date, last_games, opponent_id)
+                    except:
+                        break
+                    if len(results) == 0:
+                        break
+                    else:
+                        team_weight = 1 - sum(results)/len(results)
+                        opp_weight = 1 - team_weight
+                        edge_from_team = (team_id, opponent_id, team_weight)
+                        edge_from_opp = (opponent_id, team_id, opp_weight)
+                        graph.add_weighted_edges_from([edge_from_team, edge_from_opp], matches=len(results))
+                print(i)
+                i += 1
+
+            if save_graph_path is not None:
+                self.__save_object(graph, save_graph_path)
+
+        return graph
+
+    def __save_object(self, obj, filename):
+        with open(filename, 'wb') as output:
+            pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+
+    def __load_object(self, filename):
+        with open(filename, "rb") as input_file:
+            return pickle.load(input_file)
 
