@@ -214,16 +214,14 @@ class DatabaseHandler:
                 for opponent_id in teams_id[teams_id.index(team_id) + 1:]:
                     try:
                         results = self.get_team_results(team_id, last_date, last_games, opponent_id)
+                        if len(results) > 0:
+                            team_weight = 1 - sum(results)/len(results)
+                            opp_weight = 1 - team_weight
+                            edge_from_team = (team_id, opponent_id, team_weight)
+                            edge_from_opp = (opponent_id, team_id, opp_weight)
+                            graph.add_weighted_edges_from([edge_from_team, edge_from_opp], matches=len(results))
                     except:
-                        break
-                    if len(results) == 0:
-                        break
-                    else:
-                        team_weight = 1 - sum(results)/len(results)
-                        opp_weight = 1 - team_weight
-                        edge_from_team = (team_id, opponent_id, team_weight)
-                        edge_from_opp = (opponent_id, team_id, opp_weight)
-                        graph.add_weighted_edges_from([edge_from_team, edge_from_opp], matches=len(results))
+                        pass
                 print(i)
                 i += 1
 

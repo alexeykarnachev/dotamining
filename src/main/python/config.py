@@ -14,4 +14,4 @@ MARGINAL_METHOD = {'marginal': {'last_games': None,
 GRAPH_ANALYSIS = {'graph_analysis': {'last_date': None,
                                      'last_games': None,
                                      'save_graph_path': 'c:/workspace/projects/dotamining/ext/graph.pkl',
-                                     'read_graph_path': 'c:/workspace/projects/dotamining/ext/graph.pkl'}}
+                                     'read_graph_path': None}}

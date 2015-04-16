@@ -20,9 +20,13 @@ class DotaBetsAnalytics:
         """
         return sum(results)/len(results)
 
-    def analyze_graph(self, graph):
+    def analyze_graph(self, graph: nx.DiGraph):
             edges = graph.edges()
-            matches = [((1 - 1/graph[u][v]['matches']) * 1.5) for u, v in edges]
-            nx.draw_networkx(graph, with_labels=False, node_size=50, width=matches, arrows=False, node_color='green', edge_color='orange')
-            plt.show()
+            print(len(graph.node))
+
+
+            # matches = [((1 - 1/graph[u][v]['matches']) * 1.5) for u, v in edges]
+            # nx.draw_networkx(graph, with_labels=False, node_size=50, width=matches, arrows=False, node_color='green',
+            # edge_color='orange')
+            # plt.show()
 
