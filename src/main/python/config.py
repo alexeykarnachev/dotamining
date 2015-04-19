@@ -6,10 +6,12 @@ THREADS = 50
 TEAMS_TO_UPDATE = []
 UPDATE_OPPONENTS = False
 
-TEAMS_TO_ANALYZE = [9896, 248456, 36, 36]
-TEAMS_COEFFS = [3.4, 1.4, 2.2, 2.0]
+TEAMS_AND_OPPONENTS = [(9896, 248456), (36, 40)]
+COEFFS = [(3.4, 1.4), (2.2, 2.0)]
+DATES = None
+GAMES = None
+MIN_GAMES = None
 
-MARGINAL_METHOD = {'marginal': {'last_games': None,
-                                'last_date': '2015-01-01'}}
-GRAPH_ANALYSIS = {'graph_analysis': {'last_date': None,
-                                     'last_games': None}}
+# GRAPH_ANALYSIS = {'graph_analysis': {'dates': ['2014-01-01', '2015-04-19'],
+#                                      'games': [0, 10],
+#                                      'min_games': 10}}

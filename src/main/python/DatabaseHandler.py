@@ -205,7 +205,7 @@ class DatabaseHandler:
             except:
                 pass
 
-    def import_network(self, last_date=None, last_games=None):
+    def import_network(self, dates=None, games=None, min_games=None):
         graph = nx.DiGraph()
 
         q = 'SELECT a.dotabuff_id, b.dotabuff_id, a.win, a.match_id ' \
@@ -214,21 +214,35 @@ class DatabaseHandler:
             'join match m on m.id = a.match_id ' \
             'where a.dotabuff_name != b.dotabuff_name ' \
 
-        if last_date is not None:
-            q += 'and m.date >= :last_date ' \
+        if dates is not None:
+            q += 'and m.date >= :from_date ' \
+                 'and m.date <= :to_date '\
                  'order by m.date desc'
-            df = pd.DataFrame(self.__s.execute(q, {'last_date': last_date}).fetchall(),
+
+            df = pd.DataFrame(self.__s.execute(q, {'from_date': dates[0], 'to_date': dates[1]}).fetchall(),
                               columns=('TeamID', 'OpponentID', 'Result', 'Matches'))
         else:
             q += 'order by m.date desc'
             df = pd.DataFrame(self.__s.execute(q).fetchall(),
                               columns=('TeamID', 'OpponentID', 'Result', 'Matches'))
+        if games is None:
+            from_game = 0
+            to_game = None
+        else:
+            from_game = games[0]
+            to_game = games[1]
 
-        df = df.groupby(['TeamID', 'OpponentID'], squeeze=True).agg({'Result': lambda x: np.sum(x[0: last_games]),
-                                                                     'Matches': lambda x: len(x[0: last_games])})
+        df = df.groupby(['TeamID', 'OpponentID'], squeeze=True).agg({'Result': lambda x: np.sum(x[from_game: to_game]),
+                                                                     'Matches': lambda x: len(x[from_game: to_game])})
+        if min_games is None:
+            min_games = 0
 
-        df.apply(lambda x: graph.add_weighted_edges_from([x.name + (x['Result']/x['Matches'],)],
-                                                         matches=x['Matches']), 1)
+        def __add_edge(x):
+            if x['Matches'] >= min_games:
+                graph.add_weighted_edges_from([x.name + (x['Result']/x['Matches'],)], matches=x['Matches'])
+
+        df.apply(__add_edge, 1)
+
         return graph
 
     def __save_object(self, obj, filename):
