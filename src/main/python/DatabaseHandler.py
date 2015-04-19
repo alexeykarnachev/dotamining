@@ -1,14 +1,17 @@
 import pickle
+import pandas as pd
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from DataModel import *
 import networkx as nx
+import numpy as np
 
 
 class DatabaseHandler:
     """
     This class is a handler for dotabuff base. Using for fetching query results and commit spider results.
     """
+
     def __init__(self, con_path):
         """
         Constructor for DatabaseHandler.
@@ -40,7 +43,7 @@ class DatabaseHandler:
 
         return self.__s.execute(q).fetchall()[0]
 
-    def get_team_id(self):
+    def get_teams_id(self):
         """
         Method for getting all teams id in data base.
         :return: Match object tuple.
@@ -202,32 +205,30 @@ class DatabaseHandler:
             except:
                 pass
 
-    def import_network(self, last_date=None, last_games=None, save_graph_path=None, read_graph_path=None):
+    def import_network(self, last_date=None, last_games=None):
         graph = nx.DiGraph()
-        teams_id = self.get_team_id()
 
-        if read_graph_path is not None:
-            graph = self.__load_object(read_graph_path)
+        q = 'SELECT a.dotabuff_id, b.dotabuff_id, a.win, a.match_id ' \
+            'FROM team a ' \
+            'join team b on b.match_id = a.match_id ' \
+            'join match m on m.id = a.match_id ' \
+            'where a.dotabuff_name != b.dotabuff_name ' \
+
+        if last_date is not None:
+            q += 'and m.date >= :last_date ' \
+                 'order by m.date desc'
+            df = pd.DataFrame(self.__s.execute(q, {'last_date': last_date}).fetchall(),
+                              columns=('TeamID', 'OpponentID', 'Result', 'Matches'))
         else:
-            i = 0
-            for team_id in teams_id[0:-1]:
-                for opponent_id in teams_id[teams_id.index(team_id) + 1:]:
-                    try:
-                        results = self.get_team_results(team_id, last_date, last_games, opponent_id)
-                        if len(results) > 0:
-                            team_weight = 1 - sum(results)/len(results)
-                            opp_weight = 1 - team_weight
-                            edge_from_team = (team_id, opponent_id, team_weight)
-                            edge_from_opp = (opponent_id, team_id, opp_weight)
-                            graph.add_weighted_edges_from([edge_from_team, edge_from_opp], matches=len(results))
-                    except:
-                        pass
-                print(i)
-                i += 1
+            q += 'order by m.date desc'
+            df = pd.DataFrame(self.__s.execute(q).fetchall(),
+                              columns=('TeamID', 'OpponentID', 'Result', 'Matches'))
 
-            if save_graph_path is not None:
-                self.__save_object(graph, save_graph_path)
+        df = df.groupby(['TeamID', 'OpponentID'], squeeze=True).agg({'Result': lambda x: np.sum(x[0: last_games]),
+                                                                     'Matches': lambda x: len(x[0: last_games])})
 
+        df.apply(lambda x: graph.add_weighted_edges_from([x.name + (x['Result']/x['Matches'],)],
+                                                         matches=x['Matches']), 1)
         return graph
 
     def __save_object(self, obj, filename):
@@ -237,4 +238,3 @@ class DatabaseHandler:
     def __load_object(self, filename):
         with open(filename, "rb") as input_file:
             return pickle.load(input_file)
-

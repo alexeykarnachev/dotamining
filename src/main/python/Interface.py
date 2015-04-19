@@ -57,10 +57,19 @@ class Interface:
             if method == 'graph_analysis':
                 last_date = methods[method]['last_date']
                 last_games = methods[method]['last_games']
-                save_graph_path = methods[method]['save_graph_path']
-                read_graph_path = methods[method]['read_graph_path']
-                graph = self.__db_handler.import_network(last_date, last_games, save_graph_path, read_graph_path)
-                self.__analytics.analyze_graph(graph)
+                graph = self.__db_handler.import_network(last_date, last_games)
+
+                # edge_color = []
+                # for edge in graph.edges():
+                #     matches = graph[edge[0]][edge[1]]['matches']
+                #     edge_color += [(1, pow(1/matches, 0.8), pow(1/matches, 0.8))]
+
+                pos = nx.spring_layout(graph, scale=300)
+                nx.draw_networkx_nodes(graph, pos, node_color='green', node_size=10, with_labels=False)
+                nx.draw_networkx_edges(graph, pos, edge_color='orange', arrows=False)
+                plt.title('Dota2 Esports Teams')
+                plt.show()
+
 
 if __name__ == '__main__':
     I = Interface(CON_PATH)
