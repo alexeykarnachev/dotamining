@@ -218,13 +218,13 @@ class DatabaseHandler:
             q += 'and m.date >= :from_date ' \
                  'and m.date <= :to_date '\
                  'order by m.date desc'
-
             df = pd.DataFrame(self.__s.execute(q, {'from_date': dates[0], 'to_date': dates[1]}).fetchall(),
                               columns=('TeamID', 'OpponentID', 'Result', 'Matches'))
         else:
             q += 'order by m.date desc'
             df = pd.DataFrame(self.__s.execute(q).fetchall(),
                               columns=('TeamID', 'OpponentID', 'Result', 'Matches'))
+
         if games is None:
             from_game = 0
             to_game = None

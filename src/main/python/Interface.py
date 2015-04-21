@@ -1,6 +1,9 @@
 import datetime
 import pickle
+from numpy.ma import cumsum
 from pandas import DataFrame
+from scipy.sparse import triu
+from scipy.sparse.csgraph._traversal import connected_components
 from DatabaseHandler import DatabaseHandler
 from DotaBetsAnalytics import DotaBetsAnalytics
 from DotabuffAdapter import DotabuffAdapter
@@ -14,7 +17,6 @@ import numpy as np
 class Interface:
     """
     This class is high level interface, which combining data obtaining and analytics.
-    It is using preset parameters in config.py.
     """
 
     def __init__(self, con_path):
@@ -33,62 +35,82 @@ class Interface:
                 adapter.update_opponents(team_id)
                 print('Team Opponents Updated :: {}'.format(team_id))
 
-    def run_analytics(self):
-        if DATES is not None:
-            dates = [datetime.datetime.strptime(i, '%Y-%m-%d') for i in DATES]
-        else:
-            dates = None
+    def run_backtesting(self, dates, window, coeff_functions):
+        start_date = dates[0]
+        end_date = dates[1]
+        old_day = datetime.datetime(2010, 1, 1)
+        one_day = datetime.timedelta(days=1)
+        days_window = datetime.timedelta(days=window)
+        days = (end_date - start_date).days
+        banks = {}
+        for day in range(days):
+            print(day, range(days))
+            today = start_date + datetime.timedelta(days=day)
+            try:
+                test_analytics = DotaBetsAnalytics(self.__db_handler.import_network([today, today + one_day], [0, 1]))
+                learn_analytics = DotaBetsAnalytics(self.__db_handler.import_network([today - days_window, today]))
+                bookmaker_analytics = DotaBetsAnalytics(self.__db_handler.import_network([old_day, today]))
+            except:
+                continue
 
-        games = GAMES
-        min_games = MIN_GAMES
+            teams_list = test_analytics.graph.edges()
+            teams_analyzed = []
+            for teams in teams_list:
+                if (teams in teams_analyzed) or (teams[1], teams[0]) in teams_analyzed:
+                    continue
+                else:
+                    teams_analyzed.append(teams)
+                    try:
+                        bookmaker_winrate = bookmaker_analytics.marginal_winrate(teams)
 
-        analytics = DotaBetsAnalytics(self.__db_handler.import_network(dates, games, min_games))
+                        if bookmaker_winrate[0] >= bookmaker_winrate[1]:
+                            fav = 0
+                            out = 1
+                        else:
+                            fav = 1
+                            out = 0
 
-        for i in range(len(TEAMS_AND_OPPONENTS)):
-            team = TEAMS_AND_OPPONENTS[i][0]
-            opp = TEAMS_AND_OPPONENTS[i][1]
-            team_coeff = COEFFS[i][0]
-            opp_coeff = COEFFS[i][1]
+                        true_result = test_analytics.joint_winrate((teams[fav], teams[out]))
+                        coeff = [coeff_functions[0](bookmaker_winrate[fav]), coeff_functions[1](bookmaker_winrate[out])]
 
-            team_marginal_winrate = analytics.marginal_winrate(team)
-            opp_marginal_winrate = analytics.marginal_winrate(opp)
-            team_marginal_ev = analytics.count_ev(team_marginal_winrate, team_coeff)
-            opp_marginal_ev = analytics.count_ev(opp_marginal_winrate, opp_coeff)
+                        methods = [learn_analytics.marginal_winrate,
+                                   learn_analytics.joint_winrate,
+                                   learn_analytics.neighbors_winrate]
 
-            team_joint_winrate = analytics.joint_winrate(team, opp)
-            opp_joint_winrate = analytics.joint_winrate(opp, team)
-            team_joint_ev = analytics.count_ev(team_joint_winrate, team_coeff)
-            opp_joint_ev = analytics.count_ev(opp_joint_winrate, opp_coeff)
+                        for method_ind in range(len(methods)):
+                            method_winrate = methods[method_ind]((teams[fav], teams[out]))
+                            ev = [coeff[0] * method_winrate[0], coeff[1] * method_winrate[1]]
 
-            team_neighbors_winrate = analytics.joint_neighbors_winrate(team, opp)
-            opp_neighbors_winrate = analytics.joint_neighbors_winrate(opp, team)
-            team_neighbors_ev = analytics.count_ev(team_neighbors_winrate, team_coeff)
-            opp_neighbors_ev = analytics.count_ev(opp_neighbors_winrate, opp_coeff)
+                            if ev[0] >= ev[1]:
+                                ev_fav = 0
+                                ev_out = 1
+                            else:
+                                ev_fav = 1
+                                ev_out = 0
 
-            team_name = self.__db_handler.get_team_name(team)
-            opp_name = self.__db_handler.get_team_name(opp)
+                            if ev[ev_fav] >= 0:
+                                actual_won = (coeff[ev_fav] * true_result[ev_fav]) - 1
+                                ev_won = ev[ev_fav] - 1
+                                fav_won = (coeff[0] * true_result[0]) - 1
+                                out_won = (coeff[1] * true_result[1]) - 1
+                                result_row = [actual_won, ev_won, fav_won, out_won]
+                                if method_ind not in banks:
+                                    banks[method_ind] = DataFrame(columns=('actual', 'ev', 'fav', 'out'))
 
-            report = '\nMatch :: {team_name} VS {opp_name}\n' \
-                     '-------------------------------------------------------------------------------------------\n' \
-                     'Marginal EV   :: {team_name}: {team_marginal_ev:.2f}, {opp_name}: {opp_marginal_ev:.2f}\n' \
-                     'Joint EV      :: {team_name}: {team_joint_ev:.2f}, {opp_name}: {opp_joint_ev:.2f}\n' \
-                     'Neighbors EV  :: {team_name}: {team_neighbors_ev:.2f}, {opp_name}: {opp_neighbors_ev:.2f}\n' \
-                     '-------------------------------------------------------------------------------------------\n'.\
-                format(team_name=team_name,
-                       opp_name=opp_name,
-                       team_marginal_ev=team_marginal_ev,
-                       opp_marginal_ev=opp_marginal_ev,
-                       team_joint_ev=team_joint_ev,
-                       opp_joint_ev=opp_joint_ev,
-                       team_neighbors_ev=team_neighbors_ev,
-                       opp_neighbors_ev=opp_neighbors_ev)
+                                banks[method_ind].loc[len(banks[method_ind])] = result_row
+                    except:
+                        continue
 
-            print(report)
-
+        for bank in banks:
+            banks[bank].cumsum(0).plot()
+            plt.show()
 
 if __name__ == '__main__':
     I = Interface(CON_PATH)
-    I.run_analytics()
+    I.run_backtesting(dates=[datetime.datetime(2014, 12, 1), datetime.datetime(2015, 1, 1)], window=15,
+                      coeff_functions=[lambda x: 1.3, lambda x: 2.4])
+
+
 
 
 
