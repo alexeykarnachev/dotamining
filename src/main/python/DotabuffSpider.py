@@ -3,8 +3,6 @@ import datetime
 from grab import Grab
 from grab.spider import Spider, Task
 from bs4 import BeautifulSoup as bs
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from DataModel import *
 
 

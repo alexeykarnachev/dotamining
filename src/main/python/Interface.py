@@ -1,17 +1,12 @@
 import datetime
-import pickle
-from numpy.ma import cumsum
 from pandas import DataFrame
-from scipy.sparse import triu
-from scipy.sparse.csgraph._traversal import connected_components
 from DatabaseHandler import DatabaseHandler
 from DotaBetsAnalytics import DotaBetsAnalytics
 from DotabuffAdapter import DotabuffAdapter
-import networkx as nx
 import matplotlib.pyplot as plt
 from config import *
-import scipy as sp
-import numpy as np
+import pandas as pd
+from random import randint
 
 
 class Interface:
@@ -35,81 +30,126 @@ class Interface:
                 adapter.update_opponents(team_id)
                 print('Team Opponents Updated :: {}'.format(team_id))
 
-    def run_backtesting(self, dates, window, coeff_functions):
-        start_date = dates[0]
-        end_date = dates[1]
-        old_day = datetime.datetime(2010, 1, 1)
-        one_day = datetime.timedelta(days=1)
-        days_window = datetime.timedelta(days=window)
-        days = (end_date - start_date).days
-        banks = {}
-        for day in range(days):
-            print(day, range(days))
-            today = start_date + datetime.timedelta(days=day)
-            try:
-                test_analytics = DotaBetsAnalytics(self.__db_handler.import_network([today, today + one_day], [0, 1]))
-                learn_analytics = DotaBetsAnalytics(self.__db_handler.import_network([today - days_window, today]))
-                bookmaker_analytics = DotaBetsAnalytics(self.__db_handler.import_network([old_day, today]))
-            except:
-                continue
+    def run_backtesting(self, dotalounge_hist_file, dotalounge_names_file, window):
+        dotalounge_hist = pd.DataFrame.from_csv(dotalounge_hist_file, header=None)
+        dotalounge_names = pd.DataFrame.from_csv(dotalounge_names_file, header=0, index_col=None)
+        names = dotalounge_names['names'].tolist()
+        index = dotalounge_names['id'].tolist()
+        delta = datetime.timedelta(days=window)
+        BANKS = {}
+        unique_dates = list(set(dotalounge_hist.ix[:, 6].tolist()))
+        i = 0
+        for date_str in unique_dates:
+            date = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+            games = dotalounge_hist.loc[(dotalounge_hist.ix[:, 6] == date_str)]
+            dates = [date - delta, date]
+            analytics = DotaBetsAnalytics(self.__db_handler.import_network(dates=dates))
+            methods = [analytics.marginal_winrate,
+                       analytics.joint_winrate,
+                       analytics.neighbors_winrate]
 
-            teams_list = test_analytics.graph.edges()
-            teams_analyzed = []
-            for teams in teams_list:
-                if (teams in teams_analyzed) or (teams[1], teams[0]) in teams_analyzed:
-                    continue
-                else:
-                    teams_analyzed.append(teams)
+            for game in games.iterrows():
+                teams_names = [game[1][1], game[1][2]]
+
+                if teams_names[0] in names and teams_names[1] in names:
                     try:
-                        bookmaker_winrate = bookmaker_analytics.marginal_winrate(teams)
+                        teams_id = [index[names.index(teams_names[0])], index[names.index(teams_names[1])]]
+                        result = [0, 0]
+                        result[game[1][3]] = 1
+                        coeff = [game[1][4], game[1][5]]
 
-                        if bookmaker_winrate[0] >= bookmaker_winrate[1]:
-                            fav = 0
-                            out = 1
-                        else:
-                            fav = 1
-                            out = 0
-
-                        true_result = test_analytics.joint_winrate((teams[fav], teams[out]))
-                        coeff = [coeff_functions[0](bookmaker_winrate[fav]), coeff_functions[1](bookmaker_winrate[out])]
-
-                        methods = [learn_analytics.marginal_winrate,
-                                   learn_analytics.joint_winrate,
-                                   learn_analytics.neighbors_winrate]
-
+                        probabilities = [result[0]]
                         for method_ind in range(len(methods)):
-                            method_winrate = methods[method_ind]((teams[fav], teams[out]))
-                            ev = [coeff[0] * method_winrate[0], coeff[1] * method_winrate[1]]
+                            method_winrate = methods[method_ind](teams_id)
+                            probabilities += [method_winrate[0], method_winrate[1]]
+                            evs = [coeff[0] * method_winrate[0] - 1, coeff[1] * method_winrate[1] - 1]
 
-                            if ev[0] >= ev[1]:
-                                ev_fav = 0
-                                ev_out = 1
+                            rand_fav = randint(0, 1)
+                            rand_out = abs(rand_fav - 1)
+                            rand_won = result[rand_fav] * coeff[rand_fav] - 1
+
+                            vs_book_fav = 0 if coeff[0] >= coeff[1] else 1
+                            vs_book_out = abs(vs_book_fav - 1)
+                            vs_book_won = result[vs_book_fav] * coeff[vs_book_fav] - 1
+
+                            best_fav = 0 if result[0] == 1 else 1
+                            best_won = result[best_fav] * coeff[best_fav] - 1
+
+                            book_fav = 0 if coeff[0] <= coeff[1] else 1
+                            book_out = abs(book_fav - 1)
+                            book_won = result[book_fav] * coeff[book_fav] - 1
+
+                            my_fav = 0 if evs[0] >= evs[1] else 1
+                            my_out = abs(my_fav - 1)
+
+                            if evs[my_fav] >= 0 and evs[my_out] < 0:
+                                my_won = result[my_fav] * coeff[my_fav] - 1
+                                my_ev = evs[my_fav]
                             else:
-                                ev_fav = 1
-                                ev_out = 0
+                                my_won = 0
+                                my_ev = 0
 
-                            if ev[ev_fav] >= 0:
-                                actual_won = (coeff[ev_fav] * true_result[ev_fav]) - 1
-                                ev_won = ev[ev_fav] - 1
-                                fav_won = (coeff[0] * true_result[0]) - 1
-                                out_won = (coeff[1] * true_result[1]) - 1
-                                result_row = [actual_won, ev_won, fav_won, out_won]
-                                if method_ind not in banks:
-                                    banks[method_ind] = DataFrame(columns=('actual', 'ev', 'fav', 'out'))
+                            if method_ind not in BANKS:
+                                BANKS[method_ind] = DataFrame(columns=('rand_won',
+                                                                       'vs_book_won',
+                                                                       'book_won',
+                                                                       'my_won'))
+                            result_row = [rand_won, vs_book_won, book_won, my_won]
+                            BANKS[method_ind].loc[len(BANKS[method_ind])] = result_row
 
-                                banks[method_ind].loc[len(banks[method_ind])] = result_row
                     except:
-                        continue
+                        pass
 
-        for bank in banks:
-            banks[bank].cumsum(0).plot()
+            i += 1
+            print(i, len(unique_dates))
+
+        for bank in BANKS:
+            BANKS[bank].cumsum(0).plot()
             plt.show()
+
+    def run_analytics(self, teams_list, coeffs_list, window):
+        delta = datetime.timedelta(days=window)
+        today = datetime.date.today()
+        dates = [today - delta, today]
+        analytics = DotaBetsAnalytics(self.__db_handler.import_network(dates=dates))
+
+        for i in range(len(teams_list)):
+            results = DataFrame(columns=['1', '2'])
+            teams = teams_list[i]
+            coeffs = coeffs_list[i]
+
+            try:
+                marginal_winrates = analytics.marginal_winrate(teams)
+                results.loc[len(results)] = [(marginal_winrates[0] * coeffs[0] - 1), (marginal_winrates[1] * coeffs[1] - 1)]
+            except:
+                results.loc[len(results)] = [-100, -100]
+
+            try:
+                joint_winrates = analytics.joint_winrate(teams)
+                results.loc[len(results)] = [(joint_winrates[0] * coeffs[0] - 1), (joint_winrates[1] * coeffs[1] - 1)]
+            except:
+                results.loc[len(results)] = [-100, -100]
+
+            try:
+                neighbors_winrates = analytics.neighbors_winrate(teams)
+                results.loc[len(results)] = [(neighbors_winrates[0] * coeffs[0] - 1), (neighbors_winrates[1] * coeffs[1] - 1)]
+            except:
+                results.loc[len(results)] = [-100, -100]
+
+            print('{} VS {}'.format(teams[0], teams[1]))
+            print(results)
+
 
 if __name__ == '__main__':
     I = Interface(CON_PATH)
-    I.run_backtesting(dates=[datetime.datetime(2014, 12, 1), datetime.datetime(2015, 1, 1)], window=15,
-                      coeff_functions=[lambda x: 1.3, lambda x: 2.4])
 
+    # I.run_backtesting(dotalounge_hist_file='c:/workspace/projects/dotamining/ext/dotalounge_hist.csv',
+    #                   dotalounge_names_file='c:/workspace/projects/dotamining/ext/dotalounge_names.csv',
+    #                   window=120)
+
+    I.run_analytics([(1333179, 1820360), (1966890, 726228), (111474, 5), (543897, 2224197), (1513164, 1161668)],
+                    [(1.2, 4.7), (8.9, 1.1), (3.3, 1.4), (1.5, 2.8), (1.8, 2.2)],
+                    120)
 
 
 
